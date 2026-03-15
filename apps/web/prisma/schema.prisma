@@ -1,0 +1,358 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Role values: "patient" | "therapist" | "care_coordinator" | "org_admin" | "super_admin"
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  role          String    @default("patient")
+  emailVerified DateTime?
+  image         String?
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  patientProfile        PatientProfile?
+  therapistProfile      TherapistProfile?
+  memberships           Membership[]
+  patientAppointments   Appointment[]        @relation("PatientAppointments")
+  therapistAppointments Appointment[]        @relation("TherapistAppointments")
+  moodCheckins          MoodCheckin[]
+  sentMessages          Message[]
+  invoices              Invoice[]
+  paymentMethods        PaymentMethod[]
+  subscriptions         Subscription[]
+  auditLogs             AuditLog[]
+  notificationPreference NotificationPreference?
+  deviceRegistrations   DeviceRegistration[]
+  coordinatedCases      CareCase[]           @relation("CoordinatorCases")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PatientProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  dateOfBirth       DateTime?
+  phone             String?
+  emergencyContact  String?
+  consentAcceptedAt DateTime?
+  intakeCompletedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intakeForms  IntakeForm[]
+  assessments  Assessment[]
+  insuranceInfo InsuranceInfo[]
+  careCases    CareCase[]
+}
+
+model TherapistProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  licenseNumber       String?
+  licenseState        String?
+  npiNumber           String?
+  bio                 String?
+  specialties         String?   // JSON array
+  modalities          String?   // JSON array
+  languages           String?   // JSON array
+  populations         String?   // JSON array
+  yearsExperience     Int?
+  acceptsInsurance    Boolean   @default(false)
+  hourlyRate          Int?
+  isAcceptingPatients Boolean   @default(true)
+  verifiedAt          DateTime?
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilitySlots AvailabilitySlot[]
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  type         String?  // "employer" | "university" | "insurance" | "clinic"
+  contactEmail String?
+  plan         String?  // "free" | "starter" | "professional" | "enterprise"
+  maxMembers   Int      @default(50)
+  createdAt    DateTime @default(now())
+
+  users         User[]
+  memberships   Membership[]
+  invoices      Invoice[]
+  subscriptions Subscription[]
+}
+
+model Membership {
+  id               String    @id @default(cuid())
+  userId           String
+  organizationId   String
+  role             String    @default("member") // "member" | "admin" | "owner"
+  enrolledAt       DateTime  @default(now())
+  eligibleThrough  DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// Modality values: "video" | "phone" | "in_person" | "chat"
+// Status values: "scheduled" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
+model Appointment {
+  id           String   @id @default(cuid())
+  patientId    String
+  therapistId  String
+  startsAt     DateTime
+  endsAt       DateTime
+  modality     String   @default("video")
+  status       String   @default("scheduled")
+  notes        String?
+  cancelReason String?
+  createdAt    DateTime @default(now())
+
+  patient   User @relation("PatientAppointments", fields: [patientId], references: [id])
+  therapist User @relation("TherapistAppointments", fields: [therapistId], references: [id])
+}
+
+model AvailabilitySlot {
+  id           String  @id @default(cuid())
+  therapistId  String
+  dayOfWeek    Int     // 0=Sunday, 6=Saturday
+  startTime    String  // "09:00"
+  endTime      String  // "17:00"
+  isRecurring  Boolean @default(true)
+
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+}
+
+model IntakeForm {
+  id                    String    @id @default(cuid())
+  patientId             String
+  therapyGoals          String?   // JSON array
+  preferredLanguage     String?
+  specialtyPreferences  String?   // JSON array
+  availability          String?   // JSON object
+  careFormat            String?   // "individual" | "couples" | "family" | "group"
+  paymentPreference     String?   // "insurance" | "self_pay" | "employer"
+  additionalNotes       String?
+  completedAt           DateTime?
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Assessment {
+  id          String    @id @default(cuid())
+  patientId   String
+  type        String    // "PHQ9" | "GAD7" | "PCL5" | "AUDIT"
+  score       Int
+  responses   String?   // JSON array
+  completedAt DateTime  @default(now())
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model MoodCheckin {
+  id          String   @id @default(cuid())
+  patientId   String
+  moodScore   Int      // 1-10
+  journalText String?
+  createdAt   DateTime @default(now())
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model MessageThread {
+  id             String   @id @default(cuid())
+  subject        String?
+  participantIds String   // JSON array of user IDs
+  createdAt      DateTime @default(now())
+
+  messages Message[]
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  threadId  String
+  senderId  String
+  content   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User          @relation(fields: [senderId], references: [id])
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  userId          String
+  organizationId  String?
+  stripeInvoiceId String?
+  amountCents     Int
+  status          String    @default("draft") // "draft" | "open" | "paid" | "void" | "uncollectible"
+  description     String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model PaymentMethod {
+  id                    String  @id @default(cuid())
+  userId                String
+  stripePaymentMethodId String?
+  type                  String? // "card" | "bank_account"
+  last4                 String?
+  expiryMonth           Int?
+  expiryYear            Int?
+  isDefault             Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String
+  organizationId       String?
+  stripeSubscriptionId String?
+  plan                 String    // "individual" | "family" | "organization"
+  status               String    @default("active") // "active" | "past_due" | "canceled" | "trialing"
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+
+  user         User          @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+}
+
+// VerificationStatus values: "pending" | "verified" | "denied" | "expired"
+model InsuranceInfo {
+  id                 String    @id @default(cuid())
+  patientId          String
+  carrierName        String
+  memberId           String?
+  groupNumber        String?
+  planName           String?
+  frontCardUrl       String?
+  backCardUrl        String?
+  verificationStatus String    @default("pending")
+  verifiedAt         DateTime?
+  notes              String?
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+// CareCase status values: "open" | "in_progress" | "resolved" | "closed"
+model CareCase {
+  id            String   @id @default(cuid())
+  patientId     String
+  coordinatorId String
+  status        String   @default("open")
+  priority      Int      @default(0) // 0=low, 1=medium, 2=high, 3=urgent
+  notes         String?  // JSON array
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient     PatientProfile @relation(fields: [patientId], references: [id])
+  coordinator User           @relation("CoordinatorCases", fields: [coordinatorId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  action       String
+  resourceType String?
+  resourceId   String?
+  metadata     String?  // JSON object
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model ContentResource {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  type      String   // "article" | "exercise" | "video" | "worksheet"
+  category  String?  // "anxiety" | "depression" | "mindfulness" | "relationships" | "self-care"
+  content   String?
+  imageUrl  String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model FeatureFlag {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  enabled     Boolean @default(false)
+  description String?
+}
+
+model NotificationPreference {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  emailEnabled     Boolean @default(true)
+  smsEnabled       Boolean @default(false)
+  pushEnabled      Boolean @default(true)
+  marketingEnabled Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DeviceRegistration {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String   // "ios" | "android" | "web"
+  pushToken String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
