@@ -17,14 +17,14 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-primary rounded-lg p-1.5">
-              <Heart className="size-5 text-primary-foreground" fill="currentColor" />
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="bg-primary rounded-xl p-1.5">
+              <Heart className="size-5 text-white" fill="currentColor" />
             </div>
-            <span className="text-lg font-semibold text-foreground">OpenUp Health</span>
+            <span className="text-lg font-bold text-foreground tracking-tight">OpenUp Health</span>
           </Link>
 
           <nav className="hidden lg:flex items-center gap-1">
@@ -32,24 +32,24 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted"
+                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
               >
                 {link.label}
               </Link>
             ))}
           </nav>
 
-          <div className="hidden lg:flex items-center gap-3">
-            <Button variant="ghost" asChild>
+          <div className="hidden lg:flex items-center gap-2">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary" asChild>
               <Link href="/login">Log in</Link>
             </Button>
-            <Button asChild>
-              <Link href="/signup">Sign Up</Link>
+            <Button className="rounded-xl shadow-sm shadow-primary/20" asChild>
+              <Link href="/signup">Get Started</Link>
             </Button>
           </div>
 
           <button
-            className="lg:hidden p-2 rounded-md hover:bg-muted"
+            className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -58,24 +58,24 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="lg:hidden border-t border-border bg-background">
-          <div className="px-4 py-4 space-y-2">
+        <div className="lg:hidden border-t border-border bg-white">
+          <div className="px-4 py-4 space-y-1">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted"
+                className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
             <div className="pt-4 border-t border-border flex flex-col gap-2">
-              <Button variant="outline" className="w-full" asChild>
+              <Button variant="outline" className="w-full rounded-xl border-border" asChild>
                 <Link href="/login">Log in</Link>
               </Button>
-              <Button className="w-full" asChild>
-                <Link href="/signup">Sign Up</Link>
+              <Button className="w-full rounded-xl" asChild>
+                <Link href="/signup">Get Started</Link>
               </Button>
             </div>
           </div>
